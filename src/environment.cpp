@@ -40,49 +40,64 @@ std::vector<Car> initHighway(bool renderScene, pcl::visualization::PCLVisualizer
     return cars;
 }
 
+const std::vector<Color> kColors{
+    Color(1,1,0),
+    Color(0,1,1),
+    Color(1,0,1),
+    Color(0.5,0.5,0),
+    Color(0,0.5,0.5),
+    Color(0.5,0,0.5),
+};
+
 void cityBlock(pcl::visualization::PCLVisualizer::Ptr& viewer,
-               ProcessPointClouds<pcl::PointXYZI>& pointProcessorI,
+               const ProcessPointClouds<pcl::PointXYZI>& pointProcessor,
                const pcl::PointCloud<pcl::PointXYZI>::Ptr& inputCloud,
                const boost::program_options::variables_map& vm) {
     // ----------------------------------------------------
     // -----Open 3D viewer and display City Block     -----
     // ----------------------------------------------------
+    pcl::PointXYZI p = inputCloud->at(0);
 
-    pcl::PointCloud<pcl::PointXYZI>::Ptr filterCloud = pointProcessorI.FilterCloud(
+    const Eigen::Vector4f cropMinPoint(
+        - vm["crop-rear"].as<float>(),
+        - vm["crop-width"].as<float>() / 2.0,
+        -3.0,
+        1.0);
+    const Eigen::Vector4f cropMaxPoint(
+        vm["crop-front"].as<float>(),
+        vm["crop-width"].as<float>() / 2.0,
+        3.0,
+        1.0);
+
+    pcl::PointCloud<pcl::PointXYZI>::Ptr filterCloud = pointProcessor.FilterCloud(
         inputCloud,
-        0.1,
-        Eigen::Vector4f(-10.0, -10.0, -3.0, 1.0),
-        Eigen::Vector4f(20.0, 10.0, 3.0, 1.0));
-    //renderPointCloud(viewer, filterCloud, "filterCloud");
+        vm["filter-resolution"].as<float>(),
+        cropMinPoint,
+        cropMaxPoint);
 
-    auto segmentCloud = pointProcessorI.SegmentPlane(
+    auto segmentCloud = pointProcessor.SegmentPlane(
         filterCloud,
         vm["max-iteration"].as<int>(),
         vm["distance-threshold"].as<double>());
     renderPointCloud(viewer, segmentCloud.second, "road", Color(0, 1, 0));
-    //renderPointCloud(viewer, segmentCloud.first, "obst", Color(1, 1, 1));
 
-    auto clusters = pointProcessorI.Clustering(
+    auto clusters = pointProcessor.Clustering(
         segmentCloud.first,
         vm["cluster-tolerance"].as<float>(),
         vm["cluster-minsize"].as<int>(),
         vm["cluster-maxsize"].as<int>());
 
-    std::vector<Color> colors = {Color(1,0,0), Color(0,1,1), Color(0,0,1)};
-
     for (size_t i = 0; i < clusters.size(); ++i) {
         const auto& cluster = clusters.at(i);
-        std::cout << "cluster " << i << ": size = " << cluster->points.size() << std::endl;
         renderPointCloud(
             viewer,
             cluster,
             "obstCloud" + std::to_string(i),
-            colors[i % colors.size()]);
+            kColors.at(i % kColors.size()));
 
-        Box box = pointProcessorI.BoundingBox(cluster);
-        renderBox(viewer, box, i);
+        Box box = pointProcessor.BoundingBox(cluster);
+        //renderBox(viewer, box, i);
     }
-
 }
 
 void simpleHighway(pcl::visualization::PCLVisualizer::Ptr& viewer,
@@ -173,11 +188,17 @@ int main (int argc, char** argv)
     po::options_description desc("Allowed options");
     desc.add_options()
         ("help", "produce help message")
+        ("data-path", po::value<std::string>()->default_value("../src/sensors/data/pcd/data_1"))
+        ("filter-resolution", po::value<float>()->default_value(0.2), "filter resolution in meter")
         ("max-iteration", po::value<int>()->default_value(100), "iteration")
-        ("distance-threshold", po::value<double>()->default_value(0.2), "distance threshold")
-        ("cluster-tolerance", po::value<float>()->default_value(1.0), "cluster tolerance")
+        ("distance-threshold", po::value<double>()->default_value(0.2), "distance threshold in meter")
+        ("cluster-tolerance", po::value<float>()->default_value(1.0), "cluster tolerance in meter")
         ("cluster-minsize", po::value<int>()->default_value(3), "minimum cluster size")
         ("cluster-maxsize", po::value<int>()->default_value(3000), "maximum cluster size")
+        ("camera-angle", po::value<int>()->default_value(FPS), "camera angle")
+        ("crop-front", po::value<float>()->default_value(20.0), "ignore point cloud in front")
+        ("crop-rear", po::value<float>()->default_value(10.0), "ignore point cloud in rear")
+        ("crop-width", po::value<float>()->default_value(12.0), "ignore point cloud in side")
         ;
 
     po::variables_map vm;
@@ -192,17 +213,15 @@ int main (int argc, char** argv)
     std::cout << "starting enviroment" << std::endl;
 
     pcl::visualization::PCLVisualizer::Ptr viewer (new pcl::visualization::PCLVisualizer ("3D Viewer"));
-    //CameraAngle setAngle = XY;
-    CameraAngle setAngle = TopDown;
+    CameraAngle setAngle = (CameraAngle) vm["camera-angle"].as<int>();
     initCamera(setAngle, viewer);
 
     //simpleHighway(viewer, vm);
 
     ProcessPointClouds<pcl::PointXYZI> pointProcessorI;
-    std::vector<boost::filesystem::path> stream = pointProcessorI.streamPcd("../src/sensors/data/pcd/data_1");
+    std::vector<boost::filesystem::path> stream = pointProcessorI.streamPcd(vm["data-path"].as<std::string>());
     auto streamIterator = stream.begin();
     pcl::PointCloud<pcl::PointXYZI>::Ptr inputCloudI;
-    //renderPointCloud(viewer, inputCloud,"inputCloud");
 
     while (!viewer->wasStopped())
     {
@@ -218,6 +237,5 @@ int main (int argc, char** argv)
         }
 
         viewer->spinOnce();
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 }

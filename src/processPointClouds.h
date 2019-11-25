@@ -24,27 +24,25 @@ class ProcessPointClouds {
 public:
 
     //constructor
-    ProcessPointClouds();
+    ProcessPointClouds() = default;
     //deconstructor
-    ~ProcessPointClouds();
+    ~ProcessPointClouds() = default;
 
-    void numPoints(typename pcl::PointCloud<PointT>::Ptr cloud);
+    typename pcl::PointCloud<PointT>::Ptr FilterCloud(typename pcl::PointCloud<PointT>::Ptr cloud, float filterRes, Eigen::Vector4f minPoint, Eigen::Vector4f maxPoint) const;
 
-    typename pcl::PointCloud<PointT>::Ptr FilterCloud(typename pcl::PointCloud<PointT>::Ptr cloud, float filterRes, Eigen::Vector4f minPoint, Eigen::Vector4f maxPoint);
+    std::pair<typename pcl::PointCloud<PointT>::Ptr, typename pcl::PointCloud<PointT>::Ptr> SeparateClouds(pcl::PointIndices::Ptr inliers, typename pcl::PointCloud<PointT>::Ptr cloud) const;
 
-    std::pair<typename pcl::PointCloud<PointT>::Ptr, typename pcl::PointCloud<PointT>::Ptr> SeparateClouds(pcl::PointIndices::Ptr inliers, typename pcl::PointCloud<PointT>::Ptr cloud);
+    std::pair<typename pcl::PointCloud<PointT>::Ptr, typename pcl::PointCloud<PointT>::Ptr> SegmentPlane(typename pcl::PointCloud<PointT>::Ptr cloud, int maxIterations, float distanceThreshold) const;
 
-    std::pair<typename pcl::PointCloud<PointT>::Ptr, typename pcl::PointCloud<PointT>::Ptr> SegmentPlane(typename pcl::PointCloud<PointT>::Ptr cloud, int maxIterations, float distanceThreshold);
+    std::vector<typename pcl::PointCloud<PointT>::Ptr> Clustering(typename pcl::PointCloud<PointT>::Ptr cloud, float clusterTolerance, int minSize, int maxSize) const;
 
-    std::vector<typename pcl::PointCloud<PointT>::Ptr> Clustering(typename pcl::PointCloud<PointT>::Ptr cloud, float clusterTolerance, int minSize, int maxSize);
+    Box BoundingBox(typename pcl::PointCloud<PointT>::Ptr cluster) const;
 
-    Box BoundingBox(typename pcl::PointCloud<PointT>::Ptr cluster);
+    void savePcd(typename pcl::PointCloud<PointT>::Ptr cloud, std::string file) const;
 
-    void savePcd(typename pcl::PointCloud<PointT>::Ptr cloud, std::string file);
+    typename pcl::PointCloud<PointT>::Ptr loadPcd(std::string file) const;
 
-    typename pcl::PointCloud<PointT>::Ptr loadPcd(std::string file);
-
-    std::vector<boost::filesystem::path> streamPcd(std::string dataPath);
+    std::vector<boost::filesystem::path> streamPcd(std::string dataPath) const;
   
 };
 #endif /* PROCESSPOINTCLOUDS_H_ */
