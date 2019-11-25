@@ -96,7 +96,7 @@ void cityBlock(pcl::visualization::PCLVisualizer::Ptr& viewer,
             kColors.at(i % kColors.size()));
 
         Box box = pointProcessor.BoundingBox(cluster);
-        //renderBox(viewer, box, i);
+        renderBox(viewer, box, i);
     }
 }
 
